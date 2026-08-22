@@ -1,15 +1,19 @@
-use super::flags::StatusRegister
+use super::flags::StatusRegister;
 
 pub struct Registers
 {
-    a: u16,
-    x: u16,
-    y: u16,
+    a: u16, // Accumulator
+    x: u16, // X Index Register
+    y: u16, // Y Index Register
 
-    pc: u16,
-    sp: u16,
-    p: StatusRegister,
-    e: bool,
+    dp: u16, // Direct Page Register
+    db: u8, // Data Bank Register
+    pb: u8, // Program Bank Register
+
+    pc: u16, // Program Counter
+    sp: u16, // Stack Pointer
+    p: StatusRegister, // Status Register
+    e: bool, // Emulation Flag
 }
 
 impl Registers 
@@ -22,91 +26,159 @@ impl Registers
 
     // Accumulator
 
-    pub fn a(&self) -> u16 {}
+    pub fn a(&self) -> u16 {
+        self.a
+    }
 
-    pub fn set_a(&mut self, value: u16) {}
+    pub fn set_a(&mut self, value: u16) {
+        self.a = value;
+    }
 
-    pub fn a_low(&self) -> u8 {}
+    pub fn a_low(&self) -> u8 {
+        (self.a & 0xFF) as u8
+    }
 
-    pub fn set_a_low(&mut self, value: u8) {}
+    pub fn set_a_low(&mut self, value: u8) {
+        self.a = (self.a & 0xFF00) | (value as u16);
+    }
 
-    pub fn a_is_8bit(&self) -> bool {}
+    pub fn a_is_8bit(&self) -> bool {
+        self.p.m
+    }
 
     // Index Registers (X/Y)
     // X Index
-    pub fn x(&self) -> u16 {}
+    pub fn x(&self) -> u16 {
+        self.x
+    }
 
-    pub fn set_x(&mut self, value: u16) {}
+    pub fn set_x(&mut self, value: u16) {
+        self.x = value;
+    }
     // Y index
-    pub fn y(&self) -> u16 {}
-    
-    pub fn set_y(&mut self, value: u16) {}
+    pub fn y(&self) -> u16 {
+        self.y
+    }
+
+    pub fn set_y(&mut self, value: u16) {
+        self.y = value;
+    }
     // General Index
-    pub fn index_is_8bit(&self) -> bool {}
+    pub fn index_is_8bit(&self) -> bool {
+        self.p.x
+    }
 
     // Stack Pointer (S)
 
-    pub fn sp(&self) -> u16 {}
+    pub fn sp(&self) -> u16 {
+        self.sp
+    }
 
-    pub fn set_sp(&mut self, value: u16) {}
+    pub fn set_sp(&mut self, value: u16) {
+        self.sp = value;
+    }
 
-    pub fn increment_sp(&mut self) {}
+    pub fn increment_sp(&mut self) {
+        self.sp = self.sp.wrapping_add(1);
+    }
 
-    pub fn decrement_sp(&mut self) {}
+    pub fn decrement_sp(&mut self) {
+        self.sp = self.sp.wrapping_sub(1);
+    }
 
     // Direct Page Register (D)
 
-    pub fn dp(elf) -> u16 {}
+    pub fn dp(&self) -> u16 {
+        self.dp
+    }
 
-    pub fn set_dp(&mut self, value: u16) {}
+    pub fn set_dp(&mut self, value: u16) {
+        self.dp = value;
+    }
 
     // Data Bank Register (DB)
 
-    pub fn db(&self) -> u8 {}
+    pub fn db(&self) -> u8 {
+        self.db
+    }
 
-    pub fn set_db(&mut self, value: u8) {}
+    pub fn set_db(&mut self, value: u8) {
+        self.db = value;
+    }
 
     // Program Bank Register (PB)
 
-    pub fn pb(&self) -> u8 {}
+    pub fn pb(&self) -> u8 {
+        self.pb
+    }
 
-    pub fn set_pb(&mut self, value: u8) {}
+    pub fn set_pb(&mut self, value: u8) {
+        self.pb = value;
+    }
 
     // Program Counter (PC)
 
-    pub fn pc(&self) -> u16 {}
+    pub fn pc(&self) -> u16 {
+        self.pc
+    }
 
-    pub fn set_pc(&mut self, value: u16) {}
+    pub fn set_pc(&mut self, value: u16) {
+        self.pc = value;
+    }
 
-    pub fn increment_pc(&mut self) {}
+    pub fn increment_pc(&mut self) {
+        self.pc = self.pc.wrapping_add(1);
+    }
 
-    pub fn decrement_pc(&mut self) {}
+    pub fn decrement_pc(&mut self) {
+        self.pc = self.pc.wrapping_sub(1);
+    }
 
     // Status Register (P)
 
-    pub fn status(&self) -> &StatusRegister {}
+    pub fn status(&self) -> &StatusRegister {
+        &self.p
+    }
     
-    pub fn status_mut(&mut self) -> &mut StatusRegister {}
+    pub fn status_mut(&mut self) -> &mut StatusRegister {
+        &mut self.p 
+    }
     
     // Emulation Flag (E)
 
-    pub fn emulation_mode(&self) -> bool {}
+    pub fn emulation_mode(&self) -> bool {
+        self.p.e
+    }
 
-    pub fn set_emulation_mode(&mut self, value: bool) {}
+    pub fn set_emulation_mode(&mut self, value: bool) {
+        self.p.e = value;
+    }
 
     // Register width / CPU mode helpers
 
-    pub fn accumulator_width(&self) -> u8 {}
+    pub fn accumulator_width(&self) -> u8 {
+        self.p.m as u8
+    }
 
-    pub fn index_width(&self) -> u8 {}
+    pub fn index_width(&self) -> u8 {
+        self.p.x as u8
+    }
 
-    pub fn is_native_mode(&self) -> bool {}
+    pub fn is_native_mode(&self) -> bool {
+        !self.p.e
+    }
 
-    pub fn is_emulation_mode(&self) -> bool {}
+    pub fn is_emulation_mode(&self) -> bool {
+        self.p.e
+    }
 
     // Address helpers
 
-    pub fn program_address(&self) -> u32 {}
+    pub fn program_address(&self) -> u32 {
+        (self.pb as u32) << 16 | (self.pc as u32)
+    }
 
-    pub fn data_address(&self, address: u16) -> u32 {}
+    pub fn data_address(&self, address: u16) -> u32 {
+        (self.db as u32) << 16 | (address as u32)
+    }
 }
