@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy)]
 pub struct StatusRegister {
     pub n: bool, // Negative Flag
     pub v: bool, // Overflow Flag
