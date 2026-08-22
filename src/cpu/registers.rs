@@ -22,7 +22,18 @@ impl Registers
     
     pub fn new() -> Self {}
 
-    pub fn reset(&mut self) {}
+    pub fn reset(&mut self) {
+        self.e = true; // Reset to emulation mode
+        self.p.reset(); // Reset status register
+        self.a = 0;
+        self.x = 0;
+        self.y = 0;
+        self.dp = 0;
+        self.db = 0;
+        self.pb = 0;
+        self.pc = 0;
+        self.sp = 0x01FF; // Reset stack pointer to 0x01FF
+    }
 
     // Accumulator
 
@@ -55,6 +66,14 @@ impl Registers
     pub fn set_x(&mut self, value: u16) {
         self.x = value;
     }
+
+    pub fn x_low(&self) -> u8 {
+        (self.x & 0xFF) as u8 // Read only the low byte
+    }
+
+    pub fn set_x_low(&mut self, value: u8) {
+        self.x = (self.x & 0xFF00) | (value as u16); // Write only the low byte, but preserve the high byte
+    }
     // Y index
     pub fn y(&self) -> u16 {
         self.y
@@ -63,6 +82,15 @@ impl Registers
     pub fn set_y(&mut self, value: u16) {
         self.y = value;
     }
+
+    pub fn y_low(&self) -> u8 {
+        (self.y & 0xFF) as u8 // Read only the low byte
+    }
+
+    pub fn set_y_low(&mut self, value: u8) {
+        self.y = (self.y & 0xFF00) | (value as u16); // Write only the low byte, but preserve the high byte
+    }
+
     // General Index
     pub fn index_is_8bit(&self) -> bool {
         self.p.x
@@ -147,29 +175,21 @@ impl Registers
     // Emulation Flag (E)
 
     pub fn emulation_mode(&self) -> bool {
-        self.p.e
+        self.e
     }
 
     pub fn set_emulation_mode(&mut self, value: bool) {
-        self.p.e = value;
+        self.e = value;
     }
 
     // Register width / CPU mode helpers
 
-    pub fn accumulator_width(&self) -> u8 {
-        self.p.m as u8
-    }
-
-    pub fn index_width(&self) -> u8 {
-        self.p.x as u8
-    }
-
     pub fn is_native_mode(&self) -> bool {
-        !self.p.e
+        !self.e
     }
 
     pub fn is_emulation_mode(&self) -> bool {
-        self.p.e
+        self.e
     }
 
     // Address helpers
