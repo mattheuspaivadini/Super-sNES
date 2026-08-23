@@ -39,7 +39,7 @@ impl Bus {
         _ => panic!("read8: unmapped address: {:#08X}", addr), // panic if address is unmapped
     }
     }
-    pub fn write8(&mut self, addr: u16, value: u8) {
+    pub fn write8(&mut self, addr: u32, value: u8) {
         let bank = (addr >> 16) as u8; // Get the bank number (upper 8 bits)
         let offset = (addr & 0xFF) as u16; // Get the offset
 
@@ -65,7 +65,7 @@ impl Bus {
         (high << 8) | low // Combine into a 16-bit value
     }
 
-    pub fn write16(&mut self, addr: u32, value: u16) -> u16 {
+    pub fn write16(&mut self, addr: u32, value: u16) {
         let low = (value & 0xFF) as u8; // low byte
         let high = (value >> 8) as u8; // high byte
 

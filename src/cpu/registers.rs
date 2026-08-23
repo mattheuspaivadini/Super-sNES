@@ -20,7 +20,20 @@ impl Registers
 {
     // Inicialization
     
-    pub fn new() -> Self {}
+    pub fn new() -> Self {
+        Self {
+            a: 0,
+            x: 0,
+            y: 0,
+            dp: 0,
+            db: 0,
+            pb: 0,
+            pc: 0,
+            sp: 0x01FF, // Stack Pointer initialized to 0x01FF
+            p: StatusRegister::new(),
+            e: true, // Start in emulation mode
+        }
+    }
 
     pub fn reset(&mut self) {
         self.e = true; // Reset to emulation mode
