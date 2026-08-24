@@ -207,11 +207,11 @@ impl Registers
 
     // Address helpers
 
-    pub fn program_address(&self) -> u32 {
-        (self.pb as u32) << 16 | (self.pc as u32)
+    pub fn program_address(&self, offset: u16) -> u32 {
+        (self.pb as u32) << 16 | (offset as u32)
     }
 
-    pub fn data_address(&self, address: u16) -> u32 {
-        (self.db as u32) << 16 | (address as u32)
+    pub fn data_address(&self, offset: u16) -> u32 {
+        (self.db as u32) << 16 | (offset as u32)
     }
 }
