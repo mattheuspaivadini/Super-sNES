@@ -65,6 +65,14 @@ impl Bus {
         (high << 8) | low // Combine into a 16-bit value
     }
 
+    pub fn read16_bank_wrap(&mut self, addr: u32) -> u16 {
+        let low = self.read8(addr) as u16; // Read the low byte
+        let high = self.read8((addr & 0xFFFF_0000) | ((addr.wrapping_add(1)) & 0x0000_FFFF)) as u16; // Read the high byte with bank wrapping
+
+        (high << 8) | low // Combine into a 16-bit value
+    }
+
+
     pub fn write16(&mut self, addr: u32, value: u16) {
         let low = (value & 0xFF) as u8; // low byte
         let high = (value >> 8) as u8; // high byte

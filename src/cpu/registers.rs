@@ -214,4 +214,8 @@ impl Registers
     pub fn data_address(&self, offset: u16) -> u32 {
         (self.db as u32) << 16 | (offset as u32)
     }
+
+    //pub fn direct_address(&self, offset: u16) -> u32 {
+    //    offset as u32
+    //}
 }
