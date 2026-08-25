@@ -167,12 +167,12 @@ impl Registers
         self.pc = value;
     }
 
-    pub fn increment_pc(&mut self) {
-        self.pc = self.pc.wrapping_add(1);
+    pub fn increment_pc(&mut self, by: u16) {
+        self.pc = self.pc.wrapping_add(by);
     }
 
-    pub fn decrement_pc(&mut self) {
-        self.pc = self.pc.wrapping_sub(1);
+    pub fn decrement_pc(&mut self, by: u16) {
+        self.pc = self.pc.wrapping_sub(by);
     }
 
     // Status Register (P)
