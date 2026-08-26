@@ -11,7 +11,7 @@ pub enum AddressingMode {
     DirectIndexedX,
     DirectIndexedY,
     DirectIndirect,
-    DirectIndirectLonge,
+    DirectIndirectLong,
     DirectIndexedIndirect,
     DirectIndirectIndexed,
     DirectIndirectLongIndexed,
@@ -92,7 +92,7 @@ impl AddressingMode {
                 let offset = regs.dp().wrapping_add(operand).wrapping_add(index); // Calculate the effective address
                 EffectiveAddress {
                     address: offset as u32, // address to zero
-                    extra_cycles: u8::from(regs.dp() & 0xFF00 != 0), // Add an extra cycle if the direct page is not zero
+                    extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Add an extra cycle if the direct page is not zero
                 }
             }
 
@@ -103,7 +103,7 @@ impl AddressingMode {
                 let offset = regs.dp().wrapping_add(operand).wrapping_add(index); // Calculate the effective address
                 EffectiveAddress {
                     address: offset as u32,
-                    extra_cycles: u8::from(regs.dp() & 0xFF00 != 0), // Add an extra cycle if the direct page is not zero
+                    extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Add an extra cycle if the direct page is not zero
                 }
             }
 
@@ -114,7 +114,18 @@ impl AddressingMode {
                 let pointer = bus.read16_bank_wrap(ptr); // Read the 16-bit pointer from memory
                 EffectiveAddress {
                     address: regs.data_address(pointer), // Resolve the pointer to get the effective address
-                    extra_cycles: u8::from(regs.dp() & 0xFF00 != 0), // Add an extra cycle if the direct page is not zero
+                    extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Add an extra cycle if the direct page is not zero
+                }
+            }
+
+            AddressingMode::DirectIndirectLong => {
+                let operand = bus.read8(regs.program_address(regs.pc())) as u16; // Read the direct page offset
+                regs.increment_pc(1);
+                let ptr = regs.dp().wrapping_add(operand) as u32; // Calculate the pointer address
+                let pointer = bus.read24_bank_wrap(ptr); // Read the 24-bit pointer from memory
+                EffectiveAddress {
+                    address: pointer, // The effective address is the 24-bit pointer
+                    extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Add an extra cycle if the direct page is not zero
                 }
             }
             _ => { panic!("Addressing mode {:?} not implemented yet", self); }
