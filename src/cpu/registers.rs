@@ -1,25 +1,23 @@
 use super::flags::StatusRegister;
 
-pub struct Registers
-{
+pub struct Registers {
     a: u16, // Accumulator
     x: u16, // X Index Register
     y: u16, // Y Index Register
 
     dp: u16, // Direct Page Register
-    db: u8, // Data Bank Register
-    pb: u8, // Program Bank Register
+    db: u8,  // Data Bank Register
+    pb: u8,  // Program Bank Register
 
-    pc: u16, // Program Counter
-    sp: u16, // Stack Pointer
+    pc: u16,           // Program Counter
+    sp: u16,           // Stack Pointer
     p: StatusRegister, // Status Register
-    e: bool, // Emulation Flag
+    e: bool,           // Emulation Flag
 }
 
-impl Registers 
-{
+impl Registers {
     // Inicialization
-    
+
     pub fn new() -> Self {
         Self {
             a: 0,
@@ -180,11 +178,11 @@ impl Registers
     pub fn status(&self) -> &StatusRegister {
         &self.p
     }
-    
+
     pub fn status_mut(&mut self) -> &mut StatusRegister {
-        &mut self.p 
+        &mut self.p
     }
-    
+
     // Emulation Flag (E)
 
     pub fn emulation_mode(&self) -> bool {
@@ -215,7 +213,7 @@ impl Registers
         (self.db as u32) << 16 | (offset as u32)
     }
 
-    //pub fn direct_address(&self, offset: u16) -> u32 {
-    //    offset as u32
-    //}
+    pub fn advance_pc(&mut self, by: u16) {
+        self.pc = self.pc.wrapping_add(by);
+    }
 }
