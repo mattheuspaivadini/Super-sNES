@@ -1,4 +1,5 @@
 use super::registers::Registers;
+use crate::memory::bus::Bus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AddressingMode {
@@ -169,15 +170,12 @@ impl AddressingMode {
             }
 
             AddressingMode::StackRelative => {
-                let offset = bus.read(regs.program_address(regs.pc())); // Read the offset from memory
-                regs.advance_pc(1);                                     // Advance the PC to the next instruction
-                
-                let stack_addr = regs.sp().wrapping_add(offset as u16); // Calculate the stack address
-                let effective_addr = (0x00 << 16) | bus.read16(stack_addr); // Read the effective address from the stack
+                let offset = bus.read8(regs.program_address(regs.pc())); // Read the 8-bit offset from memory
+                regs.increment_pc(1); // Advance the PC past the operand
 
-                let value = bus.read16(effective_addr);
+                let address = regs.sp().wrapping_add(offset as u16); // SP + offset
                 EffectiveAddress {
-                    address: value,
+                    address: address as u32, // Effective address is in bank 0
                     extra_cycles: 0,
                 }
             }
