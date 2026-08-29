@@ -179,6 +179,32 @@ impl AddressingMode {
                     extra_cycles: 0,
                 }
             }
+
+            AddressingMode::AbsoluteIndirect => {
+                let operand = bus.read16(regs.program_address(regs.pc())); // Read the 16-bit pointer address
+                regs.increment_pc(2); // Advance the PC past the operand
+                // Dereference the pointer in bank 0 (with bank wrapping)
+                let target = bus.read16_bank_wrap(operand as u32);
+                EffectiveAddress {
+                    address: regs.program_address(target), // PB:target
+                    extra_cycles: 0,
+                }
+            }
+
+            AddressingMode::AbsoluteIndirectLong => {
+                // Read the 16-bit pointer address from the instruction stream
+                let operand = bus.read16(regs.program_address(regs.pc()));
+                regs.increment_pc(2);
+
+                // Dereference: read a 24-bit target address from bank 0 (with bank wrapping)
+                let target = bus.read24_bank_wrap(operand as u32);
+
+                EffectiveAddress {
+                    address: target, // Full 24-bit address (bank included from memory)
+                    extra_cycles: 0,
+                }
+            }
+            
             _ => {
                 panic!("Addressing mode {:?} not implemented yet", self);
             }
