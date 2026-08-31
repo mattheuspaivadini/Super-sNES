@@ -222,7 +222,39 @@ impl AddressingMode {
                 }
             }
 
+            AddressingMode::Accumulator => {
+                EffectiveAddress {
+                    address: 0, // No memory access
+                    extra_cycles: 0,
+                }
+            }
 
+            AddressingMode::Implied => {
+                EffectiveAddress {
+                    address: 0, // No memory access
+                    extra_cycles: 0,
+                }
+            }
+                
+            AddressingMode::Relative => {
+                let offset = bus.read8(regs.program_address(regs.pc())) as i8; // Read the signed 8-bit offset
+                regs.increment_pc(1); // Advance the PC past the operand
+                let target = regs.pc().wrapping_add(offset as u16); // PC (after fetch) + signed offset
+                EffectiveAddress {
+                    address: regs.program_address(target), // PB:target
+                    extra_cycles: 0,
+                }
+            }
+
+            AddressingMode::RelativeLong => {
+                let offset = bus.read16(regs.program_address(regs.pc()) as u32) as i16; // Read the signed 16-bit offset
+                regs.increment_pc(2); // Advance the PC past the 2-byte operand
+                let target = regs.pc().wrapping_add(offset as u16); // PC (after fetch) + signed offset
+                EffectiveAddress {
+                    address: regs.program_address(target), // PB:target
+                    extra_cycles: 0,
+                }
+            }
             _ => {
                 panic!("Addressing mode {:?} not implemented yet", self);
             }
