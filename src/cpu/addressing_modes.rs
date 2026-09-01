@@ -103,7 +103,41 @@ impl AddressingMode {
                     extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Extra cycle if DL != 0
                 }
             }
-            
+
+            AddressingMode::DirectIndirectIndexed => {
+                let operand = bus.read8(regs.program_address(regs.pc())) as u16;
+                regs.increment_pc(1);
+                let ptr = regs.dp().wrapping_add(operand) as u32; // Calculate the pointer address
+                let base = bus.read24_bank_wrap(ptr); // Read the 24-bit pointer from memory (includes bank)
+                let index = if regs.index_is_8bit() {
+                    regs.x_low() as u32
+                } else {
+                    regs.x() as u32
+                };
+                let effective = base.wrapping_add(index) & 0x00FF_FFFF; // 24-bit address wrap
+                EffectiveAddress {
+                    address: effective,
+                    extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Extra cycle if DL != 0
+                }
+            }
+
+            AddressingMode::DirectIndexedIndirect => {
+                let operand = bus.read8(regs.program_address(regs.pc())) as u16;
+                regs.increment_pc(1);
+                let ptr = regs.dp().wrapping_add(operand) as u32; // Calculate the pointer address
+                let base = bus.read24_bank_wrap(ptr); // Read the 24-bit pointer from memory (includes bank)
+                let index = if regs.index_is_8bit() {
+                    regs.x_low() as u32
+                } else {
+                    regs.x() as u32
+                };
+                let effective = base.wrapping_add(index) & 0x00FF_FFFF; // 24-bit address wrap
+                EffectiveAddress {
+                    address: effective,
+                    extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Extra cycle if DL != 0
+                }
+            }
+
             AddressingMode::Direct => {
                 let operand = bus.read8(regs.program_address(regs.pc())) as u16;
                 regs.increment_pc(1);
