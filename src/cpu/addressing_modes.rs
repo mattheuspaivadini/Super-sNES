@@ -1,5 +1,5 @@
 use super::registers::Registers;
-use crate::memory::bus::Bus;
+use crate::{cpu::addressing_modes::AddressingMode::AbsoluteIndexedY, memory::bus::Bus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AddressingMode {
@@ -107,16 +107,16 @@ impl AddressingMode {
             AddressingMode::DirectIndirectIndexed => {
                 let operand = bus.read8(regs.program_address(regs.pc())) as u16;
                 regs.increment_pc(1);
-                let ptr = regs.dp().wrapping_add(operand) as u32; // Calculate the pointer address
-                let base = bus.read24_bank_wrap(ptr); // Read the 24-bit pointer from memory (includes bank)
+                let ptr = regs.dp().wrapping_add(operand) as u32; // Calculate the pointer address (D + d)
+                let pointer = bus.read16_bank_wrap(ptr); // Read the 16-bit pointer from memory
                 let index = if regs.index_is_8bit() {
-                    regs.x_low() as u32
+                    regs.y_low() as u16
                 } else {
-                    regs.x() as u32
+                    regs.y()
                 };
-                let effective = base.wrapping_add(index) & 0x00FF_FFFF; // 24-bit address wrap
+                let effective = pointer.wrapping_add(index); // base + Y
                 EffectiveAddress {
-                    address: effective,
+                    address: regs.data_address(effective), // Resolve in DBR bank
                     extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Extra cycle if DL != 0
                 }
             }
@@ -124,16 +124,18 @@ impl AddressingMode {
             AddressingMode::DirectIndexedIndirect => {
                 let operand = bus.read8(regs.program_address(regs.pc())) as u16;
                 regs.increment_pc(1);
-                let ptr = regs.dp().wrapping_add(operand) as u32; // Calculate the pointer address
-                let base = bus.read24_bank_wrap(ptr); // Read the 24-bit pointer from memory (includes bank)
-                let index = if regs.index_is_8bit() {
-                    regs.x_low() as u32
+
+                let x_val = if regs.index_is_8bit() {
+                    regs.x_low() as u16
                 } else {
-                    regs.x() as u32
+                    regs.x()
                 };
-                let effective = base.wrapping_add(index) & 0x00FF_FFFF; // 24-bit address wrap
+                // Calculate (D + d + X) & 0xFFFF — indexed first, then indirect
+                let ptr = regs.dp().wrapping_add(operand).wrapping_add(x_val) as u32;
+                let pointer = bus.read16_bank_wrap(ptr); // Read 16-bit pointer from [D+d+X]
+
                 EffectiveAddress {
-                    address: effective,
+                    address: regs.data_address(pointer), // Resolve in DBR bank
                     extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Extra cycle if DL != 0
                 }
             }
@@ -144,7 +146,7 @@ impl AddressingMode {
                 let offset = regs.dp().wrapping_add(operand);
                 EffectiveAddress {
                     address: offset as u32,
-                    extra_cycles: u8::from(regs.dp() & 0xFF00 != 0), // Add an extra cycle if the direct page is not zero
+                    extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Add an extra cycle if DL != 0
                 }
             }
 
@@ -200,27 +202,38 @@ impl AddressingMode {
                 }
             }
 
-            AddressingMode::DirectIndexedIndirect => {
-                let dp = bus.read8(regs.program_address(regs.pc())) as u16; // Read the direct page offset
-                regs.increment_pc(1);
-
-                let index = if (regs.dp() & 0x00FF != 0) { 1 } else { 0 }; // Determine the index (1 if direct page is not zero, 0 otherwise)
-                let x_val = if regs.index_is_8bit() {
+            AddressingMode::AbsoluteIndexedX => {
+                // 16-bit base from instruction
+                let base_address = bus.read16(regs.program_address(regs.pc()) as u32); // Read the base address from memory
+                regs.increment_pc(2);
+                // sum X to base address
+                let index = if regs.index_is_8bit() {
                     regs.x_low() as u16
                 } else {
                     regs.x()
-                }; // Get the X value (low byte if 8-bit index)
-                   // Pointer always points to the low byte of the pointer value (D + dp + X) & 0xFFFF
-                let ptr = regs
-                    .dp()
-                    .wrapping_add(dp)
-                    .wrapping_add(x_val)
-                    .wrapping_add(index) as u32; // Calculate the pointer address
-                let pointer = bus.read16_bank_wrap(ptr); // Read the 16-bit pointer from memory
+                };
+                let (ptr, carry) = base_address.overflowing_add(index); // Add the index to the base address, tracking overflow
 
+                let effective = (regs.db() as u32) << 16 | (ptr as u32); // The effective address is the 24-bit pointer with the data bank shifted into the high byte
                 EffectiveAddress {
-                    address: regs.data_address(pointer),
-                    extra_cycles: u8::from(regs.dp() & 0x00FF != 0),
+                    address: effective, // The effective address is the 24-bit pointer with the data bank shifted into the high byte
+                    extra_cycles: if regs.index_is_8bit() && carry { 1 } else { 0 },
+                }
+            }
+
+            AddressingMode::AbsoluteIndexedY => {
+                let base_address = bus.read16(regs.program_address(regs.pc())); // Read the base address from memory
+                regs.increment_pc(2);
+                let index = if regs.index_is_8bit() {
+                    regs.y_low() as u16
+                } else {
+                    regs.y()
+                };
+                let (ptr, carry) = base_address.overflowing_add(index); // Add the index to the base address, tracking overflow
+                let effective = (regs.db() as u32) << 16 | (ptr as u32); // The effective address is the 24-bit pointer with the data bank shifted into the high byte
+                EffectiveAddress {
+                    address: effective,
+                    extra_cycles: if regs.index_is_8bit() && carry { 1 } else { 0 },
                 }
             }
 
@@ -270,15 +283,13 @@ impl AddressingMode {
             }
 
             AddressingMode::StackRelative => {
-                let offset = bus.read(regs.program_address(regs.pc())); // Read the offset from memory
-                regs.advance_pc(1); // Advance the PC to the next instruction
+                let offset = bus.read8(regs.program_address(regs.pc())); // Read the offset from memory
+                regs.increment_pc(1); // Advance the PC to the next instruction
 
-                let stack_addr = regs.sp().wrapping_add(offset as u16); // Calculate the stack address
-                let effective_addr = (0x00 << 16) | bus.read16(stack_addr); // Read the effective address from the stack
+                let address = regs.sp().wrapping_add(offset as u16) as u32;
 
-                let value = bus.read16(effective_addr); // Read the value from the effective address
                 EffectiveAddress {
-                    address: value,
+                    address, // SP + offset
                     extra_cycles: 0,
                 }
             }
