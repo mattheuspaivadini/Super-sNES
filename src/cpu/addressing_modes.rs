@@ -1,5 +1,5 @@
 use super::registers::Registers;
-use crate::{cpu::addressing_modes::AddressingMode::AbsoluteIndexedY, memory::bus::Bus};
+use crate::memory::bus::Bus;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AddressingMode {
@@ -20,6 +20,7 @@ pub enum AddressingMode {
     AbsoluteIndirect,
     AbsoluteIndirectLong,
     AbsoluteIndexedIndirect,
+    AbsoluteLongIndexedX,
     StackRelative,
     StackRelativeIndexedIndirect,
     Accumulator,
@@ -237,6 +238,21 @@ impl AddressingMode {
                 }
             }
 
+            AddressingMode::AbsoluteLongIndexedX => {
+                let base_address = bus.read24_bank_wrap(regs.program_address(regs.pc()));
+                regs.increment_pc(3);
+                let index = if !regs.index_is_8bit() {
+                    regs.x() as u32
+                } else {
+                    regs.x_low() as u32
+                };
+                let effective = base_address.wrapping_add(index) & 0x00FF_FFFF;
+                EffectiveAddress {
+                    address: effective,
+                    extra_cycles: 0,
+                }
+            }
+
             AddressingMode::AbsoluteIndexedIndirect => {
                 let base_address = bus.read16(regs.program_address(regs.pc())); // Read the base address from memory
                 regs.increment_pc(2);
@@ -354,10 +370,6 @@ impl AddressingMode {
                     address: 0, // No memory access
                     extra_cycles: 0,
                 }
-            }
-
-            _ => {
-                panic!("Addressing mode {:?} not implemented yet", self);
             }
         }
     }
