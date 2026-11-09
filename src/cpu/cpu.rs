@@ -1,5 +1,5 @@
 use super::addressing_modes::AddressingMode::{self, *};
-use super::flags::StatusRegister;
+use super::status::StatusRegister;
 use super::instructions::Instruction::{self, *};
 use super::opcodes::decode;
 use super::registers::Registers;

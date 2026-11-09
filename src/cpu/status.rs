@@ -24,18 +24,7 @@ impl StatusRegister {
         }
     }
 
-    pub fn reset(&mut self) {
-        self.n = false;
-        self.v = false;
-        self.m = true; // Reset to 8-bit mode
-        self.x = true; // X/Y reset to 8-bit mode
-        self.d = false;
-        self.i = false;
-        self.z = false;
-        self.c = false;
-    }
-
-    // Pack as NVMXDIZC (bit 7 -> bit 0)
+    /// Packs the flags as P is laid out: bit 7 = N ... bit 0 = C.
     pub fn bits(&self) -> u8 {
         [self.c, self.z, self.i, self.d, self.x, self.m, self.v, self.n]
             .iter()
