@@ -309,7 +309,6 @@ fn decode_spot_checks() {
 }
 
 #[test]
-#[ignore = "known bug: indexed addressing does not carry into the next bank (DBR+1)"]
 fn lda_absolute_x_carries_into_next_bank() {
     // LDA $FFFF,X with DB=$7E and X=1 must read $7F:0000
     let (mut cpu, mut bus) = run(&[0xBD, 0xFF, 0xFF], 0);
@@ -318,4 +317,50 @@ fn lda_absolute_x_carries_into_next_bank() {
     cpu.regs.set_x(1);
     cpu.step(&mut bus);
     assert_eq!(cpu.regs.a(), 0x55);
+}
+
+#[test]
+fn lda_absolute_y_carries_into_next_bank() {
+    // LDA $FFFF,Y with DB=$7E and Y=1 must read $7F:0000
+    let (mut cpu, mut bus) = run(&[0xB9, 0xFF, 0xFF], 0);
+    bus.write8(0x7F_0000, 0x66);
+    cpu.regs.set_db(0x7E);
+    cpu.regs.set_y(1);
+    cpu.step(&mut bus);
+    assert_eq!(cpu.regs.a(), 0x66);
+}
+
+#[test]
+fn lda_direct_indirect_y_carries_into_next_bank() {
+    // LDA ($10),Y with pointer $FFFF, DB=$7E, Y=1 must read $7F:0000
+    let (mut cpu, mut bus) = run(&[0xB1, 0x10], 0);
+    bus.write16(0x10, 0xFFFF);
+    bus.write8(0x7F_0000, 0x77);
+    cpu.regs.set_db(0x7E);
+    cpu.regs.set_y(1);
+    cpu.step(&mut bus);
+    assert_eq!(cpu.regs.a(), 0x77);
+}
+
+#[test]
+fn lda_stack_relative_indirect_y_carries_into_next_bank() {
+    // LDA (0,S),Y with pointer $FFFF, DB=$7E, Y=1 must read $7F:0000
+    let (mut cpu, mut bus) = run(&[0xB3, 0x00], 0);
+    bus.write16(0x01FF, 0xFFFF);
+    bus.write8(0x7F_0000, 0x88);
+    cpu.regs.set_db(0x7E);
+    cpu.regs.set_y(1);
+    cpu.step(&mut bus);
+    assert_eq!(cpu.regs.a(), 0x88);
+}
+
+#[test]
+fn pei_reads_pointer_with_bank_wrap() {
+    // PEI ($00) with D=$FFFF: pointer spans $00:FFFF/$00:0000 and must not touch bank $01
+    let (mut cpu, mut bus) = run(&[0xD4, 0x00], 0);
+    cpu.regs.set_dp(0xFFFF);
+    bus.write8(0x0000, 0x34);
+    cpu.step(&mut bus);
+    assert_eq!(bus.read16(0x01FE), 0x3400);
+    assert_eq!(cpu.regs.sp(), 0x01FD);
 }
