@@ -1,6 +1,8 @@
 //! Unit tests for CPU decode and execution.
 
 use super::cpu::Cpu;
+use super::addressing_modes::AddressingMode::*;
+use super::instructions::Instruction::*;
 use super::opcodes::decode;
 use crate::memory::bus::Bus;
 
@@ -163,4 +165,157 @@ fn reset_loads_vector() {
     cpu.reset(&mut bus);
     assert_eq!(cpu.regs.pc(), 0x8000);
     assert!(cpu.regs.is_emulation_mode());
+}
+
+// --- Risk probes: arithmetic, flags, stack, interrupts, decode ---
+
+#[test]
+fn adc_decimal_16bit_wraps_with_carry() {
+    // CLC; XCE; REP #$30; SED; CLC; LDA #$9999; ADC #$0001 -> $0000, C set
+    let (cpu, _) = run(&[0x18, 0xFB, 0xC2, 0x30, 0xF8, 0x18, 0xA9, 0x99, 0x99, 0x69, 0x01, 0x00], 7);
+    assert_eq!(cpu.regs.a(), 0x0000);
+    assert!(cpu.regs.status().c);
+}
+
+#[test]
+fn adc_decimal_8bit_carries_out() {
+    // SED; CLC; LDA #$99; ADC #$01 -> $00, C set
+    let (cpu, _) = run(&[0xF8, 0x18, 0xA9, 0x99, 0x69, 0x01], 4);
+    assert_eq!(cpu.regs.a(), 0x00);
+    assert!(cpu.regs.status().c);
+}
+
+#[test]
+fn adc_binary_16bit_overflow() {
+    // CLC; XCE; REP #$30; CLC; LDA #$7FFF; ADC #$0001 -> $8000, V set
+    let (cpu, _) = run(&[0x18, 0xFB, 0xC2, 0x30, 0x18, 0xA9, 0xFF, 0x7F, 0x69, 0x01], 6);
+    assert_eq!(cpu.regs.a(), 0x8000);
+    assert!(cpu.regs.status().v);
+    assert!(!cpu.regs.status().c);
+}
+
+#[test]
+fn sbc_binary_borrow_clears_carry() {
+    // SEC; LDA #$00; SBC #$01 -> $FF, C clear (borrow)
+    let (cpu, _) = run(&[0x38, 0xA9, 0x00, 0xE9, 0x01], 3);
+    assert_eq!(cpu.regs.a(), 0xFF);
+    assert!(!cpu.regs.status().c);
+}
+
+#[test]
+fn sbc_binary_overflow_sets_v() {
+    // SEC; LDA #$80; SBC #$01 -> $7F, V set (-128 - 1 overflows)
+    let (cpu, _) = run(&[0x38, 0xA9, 0x80, 0xE9, 0x01], 3);
+    assert_eq!(cpu.regs.a(), 0x7F);
+    assert!(cpu.regs.status().v);
+    assert!(cpu.regs.status().c);
+}
+
+#[test]
+fn xce_round_trip_restores_emulation() {
+    // CLC; XCE (-> native, C = old E = 1); XCE (-> emulation, C = old native = 0)
+    let (cpu, _) = run(&[0x18, 0xFB, 0xFB], 3);
+    assert!(cpu.regs.is_emulation_mode());
+    assert!(!cpu.regs.status().c);
+}
+
+#[test]
+fn bit_immediate_leaves_n_and_v_alone() {
+    // LDA #$FF sets N; BIT #$C0 -> Z clear, N kept from LDA, V untouched
+    let (cpu, _) = run(&[0xA9, 0xFF, 0x89, 0xC0], 2);
+    assert!(!cpu.regs.status().z);
+    assert!(cpu.regs.status().n);
+    assert!(!cpu.regs.status().v);
+}
+
+#[test]
+fn trb_clears_bits_and_sets_z_from_memory_and_a() {
+    // TRB $20 with A=$0F, [$20]=$F3 -> [$20]=$F0, Z = ($F3 & $0F) == 0 -> false
+    let (mut cpu, mut bus) = run(&[0x14, 0x20], 0);
+    bus.write8(0x20, 0xF3);
+    cpu.regs.set_a(0x0F);
+    cpu.step(&mut bus);
+    assert_eq!(bus.read8(0x20), 0xF0);
+    assert!(!cpu.regs.status().z);
+}
+
+#[test]
+fn inc_accumulator_in_8bit_keeps_high_byte() {
+    // INC A with A=$12FF (8-bit) -> $1200, Z set, high byte preserved
+    let (mut cpu, mut bus) = run(&[0x1A], 0);
+    cpu.regs.set_a(0x12FF);
+    cpu.step(&mut bus);
+    assert_eq!(cpu.regs.a(), 0x1200);
+    assert!(cpu.regs.status().z);
+}
+
+#[test]
+fn ror_accumulator_shifts_carry_into_bit7() {
+    // SEC; LDA #$00; ROR A -> $80, C clear, N set
+    let (cpu, _) = run(&[0x38, 0xA9, 0x00, 0x6A], 3);
+    assert_eq!(cpu.regs.a(), 0x80);
+    assert!(!cpu.regs.status().c);
+    assert!(cpu.regs.status().n);
+}
+
+#[test]
+fn plp_in_emulation_keeps_m_and_x_set() {
+    // PLP pulls $00; emulation mode must force M and X back on
+    let (mut cpu, mut bus) = run(&[0x28], 0);
+    bus.write8(0x0200, 0x00);
+    cpu.step(&mut bus);
+    assert!(cpu.regs.status().m);
+    assert!(cpu.regs.status().x);
+}
+
+#[test]
+fn pha_wraps_stack_within_page_one() {
+    // PHA with S=$0100 writes to $0100 and wraps S to $01FF (emulation)
+    let (mut cpu, mut bus) = run(&[0x48], 0);
+    cpu.regs.set_sp(0x0100);
+    cpu.step(&mut bus);
+    assert_eq!(cpu.regs.sp(), 0x01FF);
+    assert_eq!(bus.read8(0x0100), 0x00);
+}
+
+#[test]
+fn irq_masked_by_i_flag_still_wakes_wai() {
+    let (mut cpu, mut bus) = run(&[], 0);
+    cpu.waiting = true;
+    cpu.regs.status_mut().i = true;
+    assert_eq!(cpu.irq(&mut bus), 0);
+    assert!(!cpu.waiting);
+}
+
+#[test]
+fn nmi_in_emulation_uses_fffa_vector() {
+    let mut rom = vec![0; 0x8000];
+    rom[0x7FFA] = 0x34; // $00:FFFA -> $1234
+    rom[0x7FFB] = 0x12;
+    let mut cpu = Cpu::new();
+    let mut bus = Bus::new(rom);
+    assert_eq!(cpu.nmi(&mut bus), 7);
+    assert_eq!(cpu.regs.pc(), 0x1234);
+    assert!(cpu.regs.status().i);
+}
+
+#[test]
+fn decode_spot_checks() {
+    assert_eq!(decode(0x62), (PER, RelativeLong, 6));
+    assert_eq!(decode(0xD4), (PEI, Direct, 6));
+    assert_eq!(decode(0x64), (STZ, Direct, 3));
+    assert_eq!(decode(0x9C), (STZ, Absolute, 4));
+    assert_eq!(decode(0xBD), (LDA, AbsoluteIndexedX, 4));
+}
+
+#[test]
+#[ignore = "known bug: indexed addressing does not carry into the next bank (DBR+1)"]
+fn lda_absolute_x_carries_into_next_bank() {
+    // LDA $FFFF,X with DB=$7E and X=1 must read $7F:0000
+    let (mut cpu, mut bus) = run(&[0xBD, 0xFF, 0xFF], 0);
+    bus.write8(0x7F_0000, 0x55);
+    cpu.regs.set_db(0x7E);
+    cpu.regs.set_x(1);
+    cpu.step(&mut bus);
+    assert_eq!(cpu.regs.a(), 0x55);
 }
