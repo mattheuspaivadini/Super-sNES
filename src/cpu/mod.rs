@@ -1,8 +1,13 @@
 pub mod addressing_modes;
+pub mod alu;
 pub mod cpu;
+pub mod execute;
+pub mod implied;
 pub mod instructions;
+pub mod memory;
 pub mod opcodes;
 pub mod registers;
+pub mod stack;
 pub mod status;
 
 #[cfg(test)]
