@@ -8,6 +8,7 @@ SNES emulator in Rust (crate `ssnes`). CPU is the 65C816 (`src/cpu`), memory bus
 2. Commit every feature as soon as it is done (small commits, conventional messages: `feat:`, `fix:`, `test:`, `docs:`).
 3. Never add Claude (or any AI) as co-author of a commit. No `Co-Authored-By` lines, no AI attribution in commit messages.
 4. Never push, merge into `main`, or open PRs. Work stays on the local feature branch; the human pushes and merges.
+5. Stay on the main task you were given. Do not work on features or fixes that were not asked for.
 
 ## Workflow
 
