@@ -1,7 +1,3 @@
-use super::addressing_modes::EffectiveAddress;
-use super::registers::Registers;
-use crate::memory::Memory;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     // Load and Store
@@ -84,17 +80,8 @@ pub enum Instruction {
     PHD, // Push Direct Page Register
     PLD, // Pull Direct Page Register
     PHB, // Push Data Bank Register
-
     PLB, // Pull Data Bank Register
     PHK, // Push Program Bank Register
-    PEA, // Push Effective Absolute Address
-    PEI, // Push Effective Indirect Address
-    PER, // Push Effective PC Relative Address
-
-    PHK, // Push Program Bank Register
-    PEA, // Push Effective Absolute Address
-    PEI, // Push Effective Indirect Address
-    PER, // Push Effective PC Relative Address
     PEA, // Push Effective Absolute Address
     PEI, // Push Effective Indirect Address
     PER, // Push Effective PC Relative Address

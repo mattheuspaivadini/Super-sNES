@@ -34,4 +34,26 @@ impl StatusRegister {
         self.z = false;
         self.c = false;
     }
+
+    // Pack as NVMXDIZC (bit 7 -> bit 0)
+    pub fn bits(&self) -> u8 {
+        [self.c, self.z, self.i, self.d, self.x, self.m, self.v, self.n]
+            .iter()
+            .enumerate()
+            .fold(0, |acc, (bit, &set)| acc | (u8::from(set) << bit))
+    }
+
+    pub fn from_bits(value: u8) -> Self {
+        let bit = |n: u8| value & (1 << n) != 0;
+        StatusRegister {
+            c: bit(0),
+            z: bit(1),
+            i: bit(2),
+            d: bit(3),
+            x: bit(4),
+            m: bit(5),
+            v: bit(6),
+            n: bit(7),
+        }
+    }
 }
