@@ -320,7 +320,7 @@ impl Cpu {
                 0
             }
             PEI => {
-                let v = bus.read16(addr);
+                let v = bus.read16_bank_wrap(addr);
                 self.push16(bus, v);
                 0
             }

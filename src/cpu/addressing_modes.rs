@@ -115,9 +115,9 @@ impl AddressingMode {
                 } else {
                     regs.y()
                 };
-                let effective = pointer.wrapping_add(index); // base + Y
+                let effective = (regs.data_address(pointer) + index as u32) & 0xFF_FFFF; // DBR:ptr + Y, carries into next bank
                 EffectiveAddress {
-                    address: regs.data_address(effective), // Resolve in DBR bank
+                    address: effective,
                     extra_cycles: u8::from(regs.dp() & 0x00FF != 0), // Extra cycle if DL != 0
                 }
             }
@@ -204,6 +204,7 @@ impl AddressingMode {
             }
 
             AddressingMode::AbsoluteIndexedX => {
+                // Index is added to the full 24-bit DBR:base, so it can carry into the next bank
                 // 16-bit base from instruction
                 let base_address = bus.read16(regs.program_address(regs.pc()) as u32); // Read the base address from memory
                 regs.increment_pc(2);
@@ -213,9 +214,9 @@ impl AddressingMode {
                 } else {
                     regs.x()
                 };
-                let (ptr, carry) = base_address.overflowing_add(index); // Add the index to the base address, tracking overflow
+                let carry = base_address.overflowing_add(index).1; // Page crossing costs a cycle
 
-                let effective = (regs.db() as u32) << 16 | (ptr as u32); // The effective address is the 24-bit pointer with the data bank shifted into the high byte
+                let effective = (regs.data_address(base_address) + index as u32) & 0xFF_FFFF;
                 EffectiveAddress {
                     address: effective, // The effective address is the 24-bit pointer with the data bank shifted into the high byte
                     extra_cycles: if regs.index_is_8bit() && carry { 1 } else { 0 },
@@ -230,8 +231,8 @@ impl AddressingMode {
                 } else {
                     regs.y()
                 };
-                let (ptr, carry) = base_address.overflowing_add(index); // Add the index to the base address, tracking overflow
-                let effective = (regs.db() as u32) << 16 | (ptr as u32); // The effective address is the 24-bit pointer with the data bank shifted into the high byte
+                let carry = base_address.overflowing_add(index).1; // Page crossing costs a cycle
+                let effective = (regs.data_address(base_address) + index as u32) & 0xFF_FFFF;
                 EffectiveAddress {
                     address: effective,
                     extra_cycles: if regs.index_is_8bit() && carry { 1 } else { 0 },
@@ -324,9 +325,9 @@ impl AddressingMode {
                     regs.y()
                 };
 
-                let effective = pointer.wrapping_add(index);
+                let effective = (regs.data_address(pointer) + index as u32) & 0xFF_FFFF;
                 EffectiveAddress {
-                    address: regs.data_address(effective), // Resolve in DBR bank
+                    address: effective,
                     extra_cycles: 0,
                 }
             }
