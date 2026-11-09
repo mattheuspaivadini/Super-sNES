@@ -21,7 +21,7 @@ impl Cpu {
         } else {
             a + v + p.c as u32
         };
-        // shortcut: in decimal mode V uses the BCD result, real chips use an intermediate one; fine for games that ignore V after BCD
+        // shortcut: decimal-mode V uses the BCD result, real chips use an intermediate one, upgrade if a game reads V after BCD math
         self.regs.status_mut().v = !(a ^ v) & (a ^ r) & sign_bit(wide) as u32 != 0;
         self.regs.status_mut().c = r > mask;
         self.set_a_nz(r as u16);

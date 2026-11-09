@@ -1,3 +1,4 @@
+/// The P register flags, one bool each. `from_bits` and `bits` convert to and from the P byte.
 #[derive(Debug, Clone, Copy)]
 pub struct StatusRegister {
     pub n: bool, // Negative Flag

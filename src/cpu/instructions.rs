@@ -1,3 +1,4 @@
+/// One variant per 65C816 mnemonic. `opcodes.rs` maps bytes to these; `execute.rs` runs them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     // Load and Store
