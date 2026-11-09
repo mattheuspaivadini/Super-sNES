@@ -1,23 +1,22 @@
-use super::flags::StatusRegister;
+use super::status::StatusRegister;
 
+/// The 65816 programmer-visible registers.
 pub struct Registers {
-    a: u16, // Accumulator
-    x: u16, // X Index Register
-    y: u16, // Y Index Register
+    a: u16, // Accumulator (C in native mode, A is the low byte)
+    x: u16, // X index
+    y: u16, // Y index
 
-    dp: u16, // Direct Page Register
-    db: u8,  // Data Bank Register
-    pb: u8,  // Program Bank Register
+    dp: u16, // Direct page register (D)
+    db: u8,  // Data bank register (DB)
+    pb: u8,  // Program bank register (PB)
 
-    pc: u16,           // Program Counter
-    sp: u16,           // Stack Pointer
-    p: StatusRegister, // Status Register
-    e: bool,           // Emulation Flag
+    pc: u16,           // Program counter
+    sp: u16,           // Stack pointer (S)
+    p: StatusRegister, // Status register (P)
+    e: bool,           // Emulation flag (E)
 }
 
 impl Registers {
-    // Inicialization
-
     pub fn new() -> Self {
         Self {
             a: 0,
@@ -27,23 +26,14 @@ impl Registers {
             db: 0,
             pb: 0,
             pc: 0,
-            sp: 0x01FF, // Stack Pointer initialized to 0x01FF
+            sp: 0x01FF,
             p: StatusRegister::new(),
-            e: true, // Start in emulation mode
+            e: true, // The CPU starts in emulation mode
         }
     }
 
     pub fn reset(&mut self) {
-        self.e = true; // Reset to emulation mode
-        self.p.reset(); // Reset status register
-        self.a = 0;
-        self.x = 0;
-        self.y = 0;
-        self.dp = 0;
-        self.db = 0;
-        self.pb = 0;
-        self.pc = 0;
-        self.sp = 0x01FF; // Reset stack pointer to 0x01FF
+        *self = Self::new();
     }
 
     // Accumulator
@@ -56,10 +46,6 @@ impl Registers {
         self.a = value;
     }
 
-    pub fn a_low(&self) -> u8 {
-        (self.a & 0xFF) as u8
-    }
-
     pub fn set_a_low(&mut self, value: u8) {
         self.a = (self.a & 0xFF00) | (value as u16);
     }
@@ -68,8 +54,8 @@ impl Registers {
         self.p.m
     }
 
-    // Index Registers (X/Y)
-    // X Index
+    // Index registers
+
     pub fn x(&self) -> u16 {
         self.x
     }
@@ -78,14 +64,6 @@ impl Registers {
         self.x = value;
     }
 
-    pub fn x_low(&self) -> u8 {
-        (self.x & 0xFF) as u8 // Read only the low byte
-    }
-
-    pub fn set_x_low(&mut self, value: u8) {
-        self.x = (self.x & 0xFF00) | (value as u16); // Write only the low byte, but preserve the high byte
-    }
-    // Y index
     pub fn y(&self) -> u16 {
         self.y
     }
@@ -94,20 +72,21 @@ impl Registers {
         self.y = value;
     }
 
-    pub fn y_low(&self) -> u8 {
-        (self.y & 0xFF) as u8 // Read only the low byte
-    }
-
-    pub fn set_y_low(&mut self, value: u8) {
-        self.y = (self.y & 0xFF00) | (value as u16); // Write only the low byte, but preserve the high byte
-    }
-
-    // General Index
     pub fn index_is_8bit(&self) -> bool {
         self.p.x
     }
 
-    // Stack Pointer (S)
+    /// X as an index: only the low byte counts when the index registers are 8-bit.
+    pub fn index_x(&self) -> u16 {
+        if self.index_is_8bit() { self.x & 0xFF } else { self.x }
+    }
+
+    /// Y as an index: only the low byte counts when the index registers are 8-bit.
+    pub fn index_y(&self) -> u16 {
+        if self.index_is_8bit() { self.y & 0xFF } else { self.y }
+    }
+
+    // Stack pointer
 
     pub fn sp(&self) -> u16 {
         self.sp
@@ -117,15 +96,7 @@ impl Registers {
         self.sp = value;
     }
 
-    pub fn increment_sp(&mut self) {
-        self.sp = self.sp.wrapping_add(1);
-    }
-
-    pub fn decrement_sp(&mut self) {
-        self.sp = self.sp.wrapping_sub(1);
-    }
-
-    // Direct Page Register (D)
+    // Direct page
 
     pub fn dp(&self) -> u16 {
         self.dp
@@ -135,7 +106,7 @@ impl Registers {
         self.dp = value;
     }
 
-    // Data Bank Register (DB)
+    // Data bank
 
     pub fn db(&self) -> u8 {
         self.db
@@ -145,7 +116,7 @@ impl Registers {
         self.db = value;
     }
 
-    // Program Bank Register (PB)
+    // Program bank and counter
 
     pub fn pb(&self) -> u8 {
         self.pb
@@ -154,8 +125,6 @@ impl Registers {
     pub fn set_pb(&mut self, value: u8) {
         self.pb = value;
     }
-
-    // Program Counter (PC)
 
     pub fn pc(&self) -> u16 {
         self.pc
@@ -173,7 +142,7 @@ impl Registers {
         self.pc = self.pc.wrapping_sub(by);
     }
 
-    // Status Register (P)
+    // Status register
 
     pub fn status(&self) -> &StatusRegister {
         &self.p
@@ -183,7 +152,7 @@ impl Registers {
         &mut self.p
     }
 
-    // Emulation Flag (E)
+    // Emulation flag
 
     pub fn emulation_mode(&self) -> bool {
         self.e
@@ -193,8 +162,6 @@ impl Registers {
         self.e = value;
     }
 
-    // Register width / CPU mode helpers
-
     pub fn is_native_mode(&self) -> bool {
         !self.e
     }
@@ -203,7 +170,7 @@ impl Registers {
         self.e
     }
 
-    // Address helpers
+    // Full 24-bit addresses: bank register plus a 16-bit offset
 
     pub fn program_address(&self, offset: u16) -> u32 {
         (self.pb as u32) << 16 | (offset as u32)
@@ -211,9 +178,5 @@ impl Registers {
 
     pub fn data_address(&self, offset: u16) -> u32 {
         (self.db as u32) << 16 | (offset as u32)
-    }
-
-    pub fn advance_pc(&mut self, by: u16) {
-        self.pc = self.pc.wrapping_add(by);
     }
 }
