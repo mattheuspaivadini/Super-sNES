@@ -64,10 +64,6 @@ impl Registers {
         self.x = value;
     }
 
-    pub fn x_low(&self) -> u8 {
-        (self.x & 0xFF) as u8
-    }
-
     pub fn y(&self) -> u16 {
         self.y
     }
@@ -76,12 +72,18 @@ impl Registers {
         self.y = value;
     }
 
-    pub fn y_low(&self) -> u8 {
-        (self.y & 0xFF) as u8
-    }
-
     pub fn index_is_8bit(&self) -> bool {
         self.p.x
+    }
+
+    /// X as an index: only the low byte counts when the index registers are 8-bit.
+    pub fn index_x(&self) -> u16 {
+        if self.index_is_8bit() { self.x & 0xFF } else { self.x }
+    }
+
+    /// Y as an index: only the low byte counts when the index registers are 8-bit.
+    pub fn index_y(&self) -> u16 {
+        if self.index_is_8bit() { self.y & 0xFF } else { self.y }
     }
 
     // Stack pointer
